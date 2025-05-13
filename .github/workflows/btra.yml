@@ -1,0 +1,39 @@
+name: avica
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Start Building...
+    runs-on: windows-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Instalando dependências e RDP
+        run: |
+          Invoke-WebRequest -Uri "https://gitlab.com/raposabrty/pcrdp/-/raw/main/Downloads.bat" -OutFile "Downloads.bat"
+          cmd /c Downloads.bat
+
+      - name: Baixando Cloudflared
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile "cloudflared.exe"
+
+      - name: Salvando credenciais do túnel
+        run: |
+          echo "${{ secrets.CF_TUNNEL_CREDENTIALS }}" > tunnel.json
+
+      - name: Criando arquivo de configuração
+        run: |
+          echo "tunnel: f1572c1a-c3d6-43ea-809d-c39c8a077959" > tunnel.yml
+          echo "credentials-file: tunnel.json" >> tunnel.yml
+          echo "ingress:" >> tunnel.yml
+          echo "  - hostname: rdp.seudominio.com" >> tunnel.yml
+          echo "    service: rdp://localhost:3389" >> tunnel.yml
+          echo "  - service: http_status:404" >> tunnel.yml
+
+      - name: Iniciando túnel Cloudflare
+        run: .\cloudflared.exe tunnel --config tunnel.yml run
+
+      - name: Mantendo ativo
+        run: cmd /c loop.bat
